@@ -11,7 +11,10 @@ This is a module that is not intended to be published to the public Viam Registr
    ```
    go build -o viam-ros-sensor-bridge module.go
    ```
-   Be sure to use `GOOS` and `GOARCH` environment variables when necessary
+   Be sure to use `GOOS` and `GOARCH` environment variables when necessary. For example, to build on x86_64 to run on a Raspberry Pi.
+   ```
+   GOOS=linux GOARCH=arm64 go build -o viam-ros-sensor-bridge module.go
+   ```
 6. (Optional) Move the binary to your robot and test
 7. (Optional) Publish to your private Viam Repository
    

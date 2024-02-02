@@ -1,4 +1,4 @@
-package ros_sensor_publisher
+package ros_sensor_consumer
 
 import "errors"
 
@@ -10,7 +10,6 @@ type RosBridgeConfig struct {
 type SensorConfig struct {
 	Topic string `json:"topic"`
 	Type  string `json:"type"`
-	Name  string `json:"name"`
 }
 
 func (cfg *RosBridgeConfig) Validate(path string) ([]string, error) {
@@ -23,9 +22,6 @@ func (cfg *RosBridgeConfig) Validate(path string) ([]string, error) {
 	} else {
 		if cfg.Sensor.Topic == "" {
 			return nil, errors.New("topic is required")
-		}
-		if cfg.Sensor.Name == "" {
-			return nil, errors.New("sensor name is required")
 		}
 		if cfg.Sensor.Type == "" {
 			return nil, errors.New("sensor type is required")

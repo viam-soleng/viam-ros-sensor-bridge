@@ -1,4 +1,4 @@
-package ros_sensor_publisher
+package ros_sensor_consumer
 
 import (
 	"context"
@@ -101,13 +101,17 @@ func (r *RosSensorConsumer) reconfigure(newConf *RosBridgeConfig, deps resource.
 		return err
 	}
 
-	r.logger.Debugf("Creating sensor %v", newConf.Sensor.Name)
+	r.logger.Debugf("Creating sensor %v", newConf.Sensor.Topic)
+	handler := messages.NewMessageHandler(r.logger, r.setLastMessage)
+	conf, err := handler.GetSubscriberConfigWithHandler(newConf.Sensor.Type)
+	if err != nil {
+		r.logger.Error(err)
+		return err
+	}
+	conf.Node = r.node
+	conf.Topic = newConf.Sensor.Topic
 
-	subscriber, err := goroslib.NewSubscriber(goroslib.SubscriberConf{
-		Node:     r.node,
-		Topic:    newConf.Sensor.Topic,
-		Callback: r.handleMessage,
-	})
+	subscriber, err := goroslib.NewSubscriber(*conf)
 	if err != nil {
 		r.logger.Error(err)
 		return err
@@ -132,13 +136,9 @@ func (r *RosSensorConsumer) cleanup() {
 	}
 }
 
-func (r *RosSensorConsumer) handleMessage(msg interface{}) {
+func (r *RosSensorConsumer) setLastMessage(m map[string]interface{}) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	m, err := messages.ConvertFromRosMsg(msg)
-	if err != nil {
-		r.logger.Error(err)
-		return
-	}
+	r.logger.Debugf("Setting last message %v", m)
 	r.lastMessage = m
 }

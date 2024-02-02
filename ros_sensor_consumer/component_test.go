@@ -1,4 +1,4 @@
-package ros_sensor_publisher
+package ros_sensor_consumer
 
 import (
 	"os"

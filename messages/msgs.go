@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/bluenviron/goroslib/v2"
 	"github.com/bluenviron/goroslib/v2/pkg/msg"
 	"github.com/bluenviron/goroslib/v2/pkg/msgs/std_msgs"
+	"go.viam.com/rdk/logging"
 )
 
 var ErrTypeNotFound = errors.New("type not found")
@@ -41,16 +43,126 @@ var custom_registry = TypeRegistry{
 	"ThrottlingStates": func() interface{} { return &ThrottlingStates{} },
 }
 
-var registries = []TypeRegistry{std_msgs_registry, custom_registry}
+var type_registries = []TypeRegistry{std_msgs_registry, custom_registry}
 
 func GetMessageType(typeName string) (interface{}, error) {
-	for _, registry := range registries {
+	for _, registry := range type_registries {
 		creator, ok := registry[typeName]
 		if ok {
 			return creator(), nil
 		}
 	}
 
+	return nil, ErrTypeNotFound
+}
+
+type HandlerRegistry map[string]func(*MessageHandler) *goroslib.SubscriberConf
+
+var std_msgs_handler_registry = HandlerRegistry{
+	"std_msgs/Header": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.Header) { h.handleMessage(msg) }}
+	},
+	"std_msgs/String": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.String) { h.handleMessage(msg) }}
+	},
+	"std_msgs/Bool": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.Bool) { h.handleMessage(msg) }}
+	},
+	"std_msgs/Int8": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.Int8) { h.handleMessage(msg) }}
+	},
+	"std_msgs/Int16": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.Int16) { h.handleMessage(msg) }}
+	},
+	"std_msgs/Int32": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.Int32) { h.handleMessage(msg) }}
+	},
+	"std_msgs/Int64": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.Int64) { h.handleMessage(msg) }}
+	},
+	"std_msgs/UInt8": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.UInt8) { h.handleMessage(msg) }}
+	},
+	"std_msgs/UInt16": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.UInt16) { h.handleMessage(msg) }}
+	},
+	"std_msgs/UInt32": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.UInt32) { h.handleMessage(msg) }}
+	},
+	"std_msgs/UInt64": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.UInt64) { h.handleMessage(msg) }}
+	},
+	"std_msgs/Float32": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.Float32) { h.handleMessage(msg) }}
+	},
+	"std_msgs/Float64": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.Float64) { h.handleMessage(msg) }}
+	},
+	"std_msgs/Time": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.Time) { h.handleMessage(msg) }}
+	},
+	"std_msgs/Duration": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.Duration) { h.handleMessage(msg) }}
+	},
+	"std_msgs/ColorRGBA": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.ColorRGBA) { h.handleMessage(msg) }}
+	},
+	"std_msgs/MultiArrayDimension": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.MultiArrayDimension) { h.handleMessage(msg) }}
+	},
+	"std_msgs/MultiArrayLayout": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.MultiArrayLayout) { h.handleMessage(msg) }}
+	},
+	"std_msgs/Byte": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.Byte) { h.handleMessage(msg) }}
+	},
+	"std_msgs/ByteMultiArray": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.ByteMultiArray) { h.handleMessage(msg) }}
+	},
+	"std_msgs/Char": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.Char) { h.handleMessage(msg) }}
+	},
+	"std_msgs/Empty": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *std_msgs.Empty) { h.handleMessage(msg) }}
+	},
+}
+
+var custom_handler_registry = HandlerRegistry{
+	"ThrottlingStates": func(h *MessageHandler) *goroslib.SubscriberConf {
+		return &goroslib.SubscriberConf{Callback: func(msg *ThrottlingStates) { h.handleMessage(msg) }}
+	},
+}
+
+var handler_registries = []HandlerRegistry{std_msgs_handler_registry, custom_handler_registry}
+
+type MessageHandler struct {
+	logger         logging.Logger
+	setLastMessage func(map[string]interface{})
+}
+
+func NewMessageHandler(logger logging.Logger, setLastMessage func(map[string]interface{})) *MessageHandler {
+	return &MessageHandler{logger: logger, setLastMessage: setLastMessage}
+}
+
+func (h *MessageHandler) handleMessage(msg interface{}) error {
+	h.logger.Debugf("Converting message %#v", msg)
+	m, err := ConvertFromRosMsg(msg)
+	if err != nil {
+		h.logger.Error(err)
+		return err
+	}
+	h.logger.Debugf("Converted message %#v", m)
+	h.setLastMessage(m)
+	return nil
+}
+
+func (h *MessageHandler) GetSubscriberConfigWithHandler(typeName string) (*goroslib.SubscriberConf, error) {
+	for _, registry := range handler_registries {
+		creator, ok := registry[typeName]
+		if ok {
+			return creator(h), nil
+		}
+	}
 	return nil, ErrTypeNotFound
 }
 

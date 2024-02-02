@@ -4,10 +4,12 @@ import (
 	"context"
 
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/utils"
 
+	"github.com/viam-soleng/viam-ros-sensor-bridge/ros_sensor_consumer"
 	"github.com/viam-soleng/viam-ros-sensor-bridge/ros_sensor_publisher"
 )
 
@@ -22,6 +24,11 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (er
 	}
 
 	err = custom_module.AddModelFromRegistry(ctx, generic.API, ros_sensor_publisher.Model)
+	if err != nil {
+		return err
+	}
+
+	err = custom_module.AddModelFromRegistry(ctx, sensor.API, ros_sensor_consumer.Model)
 	if err != nil {
 		return err
 	}
