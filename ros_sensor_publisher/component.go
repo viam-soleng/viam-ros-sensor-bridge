@@ -23,15 +23,15 @@ func init() {
 		generic.API,
 		Model,
 		resource.Registration[resource.Resource, *RosBridgeConfig]{
-			Constructor: NewRosBridge,
+			Constructor: NewRosSensorPublisher,
 		},
 	)
 }
 
-func NewRosBridge(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (resource.Resource, error) {
+func NewRosSensorPublisher(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (resource.Resource, error) {
 	logger.Info("Starting Ros Sensor Publisher Module v0.0.1")
 	c, cancelFunc := context.WithCancel(context.Background())
-	b := RosBridge{
+	b := RosSensorPublisher{
 		Named:      conf.ResourceName().AsNamed(),
 		logger:     logger,
 		cancelFunc: cancelFunc,
@@ -44,7 +44,7 @@ func NewRosBridge(ctx context.Context, deps resource.Dependencies, conf resource
 	return &b, nil
 }
 
-type RosBridge struct {
+type RosSensorPublisher struct {
 	resource.Named
 	mu         sync.RWMutex
 	wg         sync.WaitGroup
@@ -55,7 +55,7 @@ type RosBridge struct {
 }
 
 // Close implements resource.Resource.
-func (r *RosBridge) Close(ctx context.Context) error {
+func (r *RosSensorPublisher) Close(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.logger.Info("Closing Ros Sensor Publisher Module")
@@ -69,12 +69,12 @@ func (r *RosBridge) Close(ctx context.Context) error {
 }
 
 // DoCommand implements resource.Resource.
-func (*RosBridge) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (*RosSensorPublisher) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return map[string]interface{}{"ok": 1}, nil
 }
 
 // Reconfigure implements resource.Resource.
-func (r *RosBridge) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (r *RosSensorPublisher) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.logger.Debug("Reconfiguring Docker Manager Module")
@@ -90,7 +90,7 @@ func (r *RosBridge) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	return r.reconfigure(newConf, deps)
 }
 
-func (r *RosBridge) reconfigure(newConf *RosBridgeConfig, deps resource.Dependencies) error {
+func (r *RosSensorPublisher) reconfigure(newConf *RosBridgeConfig, deps resource.Dependencies) error {
 	r.logger.Debug("Stopping existing readers")
 	// call the cancel func to stop all readers
 	r.cancelFunc()
@@ -188,7 +188,7 @@ func reader(s *SensorConfig, sensor sensor.Sensor, node *goroslib.Node, logger l
 					continue
 				}
 
-				d, e := messages.ConvertMessage(sensor.Name().Name, s.Type, readings)
+				d, e := messages.ConvertToRosMsg(s.Type, readings)
 				if e != nil {
 					logger.Error(e)
 					continue

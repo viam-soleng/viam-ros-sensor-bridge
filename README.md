@@ -5,7 +5,7 @@ This is a module that is not intended to be published to the public Viam Registr
 ## How to use this
 1. Use the tools from goroslib to convert the IDL files to go structs
 2. Add the struct to [msgs.go](messages/msgs.go) (or your own file in that package) 
-3. Update the [GetMessageType](messages/msgs.go#L49) and [ConvertMessage](messages/msgs.go#L64) methods so that your new types are properly handled. Please see [ThrottlingStates](messages/msgs.go#L119) and [convertThrottlingStates](messages/msgs.go#L132) for demos on doing this.
+3. Update the [custom_registry](messages/msgs.go#L40) to add the new type to the registry so that your new types are properly handled. Please see [ThrottlingStates](messages/msgs.go#L87) for an example on doing this. *DO NOT CHANGE `std_msgs_registry`*
 4. Add any appropriate [tests](messages/msgs_test.go)
 5. Compile the module
    ```
@@ -15,4 +15,5 @@ This is a module that is not intended to be published to the public Viam Registr
 6. (Optional) Move the binary to your robot and test
 7. (Optional) Publish to your private Viam Repository
    
+   ---
    **DO NOT PUBLISH TO THE PUBLIC REPOSITORY**
