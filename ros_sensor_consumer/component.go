@@ -3,6 +3,7 @@ package ros_sensor_consumer
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/bluenviron/goroslib/v2"
 	"go.viam.com/rdk/components/sensor"
@@ -139,6 +140,7 @@ func (r *RosSensorConsumer) cleanup() {
 func (r *RosSensorConsumer) setLastMessage(m map[string]interface{}) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	m["Timestamp"] = time.Now().UTC().UnixMilli()
 	r.logger.Debugf("Setting last message %v", m)
 	r.lastMessage = m
 }
