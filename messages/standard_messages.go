@@ -1,19 +1,8 @@
 package messages
 
 import (
-	"encoding/json"
-	"errors"
-	"strings"
-
-	"github.com/bluenviron/goroslib/v2"
-	"github.com/bluenviron/goroslib/v2/pkg/msg"
 	"github.com/bluenviron/goroslib/v2/pkg/msgs/std_msgs"
-	"go.viam.com/rdk/logging"
 )
-
-var ErrTypeNotFound = errors.New("type not found")
-
-type TypeRegistry map[string]func() interface{}
 
 var std_msgs_registry = TypeRegistry{
 	"std_msgs/Header":              func() interface{} { return &std_msgs.Header{} },
@@ -38,32 +27,6 @@ var std_msgs_registry = TypeRegistry{
 	"std_msgs/ByteMultiArray":      func() interface{} { return &std_msgs.ByteMultiArray{} },
 	"std_msgs/Char":                func() interface{} { return &std_msgs.Char{} },
 	"std_msgs/Empty":               func() interface{} { return &std_msgs.Empty{} },
-}
-
-var custom_registry = TypeRegistry{
-	"ThrottlingStates": func() interface{} { return &ThrottlingStates{} },
-}
-
-var type_registries = []TypeRegistry{std_msgs_registry, custom_registry}
-
-type MessageHandler struct {
-	logger         logging.Logger
-	setLastMessage func(map[string]interface{})
-}
-
-func NewMessageHandler(logger logging.Logger, setLastMessage func(map[string]interface{})) *MessageHandler {
-	return &MessageHandler{logger: logger, setLastMessage: setLastMessage}
-}
-
-func GetMessageType(typeName string) (interface{}, error) {
-	for _, registry := range type_registries {
-		creator, ok := registry[typeName]
-		if ok {
-			return creator(), nil
-		}
-	}
-
-	return nil, ErrTypeNotFound
 }
 
 func GetStdMsgsCallback(handleMessage func(interface{}) error, typeName string) interface{} {
@@ -114,83 +77,4 @@ func GetStdMsgsCallback(handleMessage func(interface{}) error, typeName string) 
 		return func(msg *std_msgs.Empty) { handleMessage(msg) }
 	}
 	return nil
-}
-
-func GetCustomMsgsCallback(handleMessage func(interface{}), typeName string) interface{} {
-	switch typeName {
-	case "ThrottlingStates":
-		return func(msg *ThrottlingStates) { handleMessage(msg) }
-	}
-	return nil
-}
-
-func (h *MessageHandler) getCallback(typeName string) interface{} {
-	handler := h.handleMessage
-	if strings.HasPrefix(typeName, "std_msgs/") {
-		return GetStdMsgsCallback(handler, typeName)
-	}
-	return nil
-}
-
-func (h *MessageHandler) GetSubscriberConfigWithHandler(typeName string) (*goroslib.SubscriberConf, error) {
-	handler := h.getCallback(typeName)
-	if handler != nil {
-		return &goroslib.SubscriberConf{Callback: handler}, nil
-	}
-	return nil, ErrTypeNotFound
-}
-
-func (h *MessageHandler) handleMessage(msg interface{}) error {
-	h.logger.Debugf("Converting message %#v", msg)
-	m, err := convertFromRosMsg(msg)
-	if err != nil {
-		h.logger.Error(err)
-		return err
-	}
-	h.logger.Debugf("Converted message %#v", m)
-	h.setLastMessage(m)
-	return nil
-}
-
-func ConvertToRosMsg(typeName string, data map[string]interface{}) (interface{}, error) {
-	t, err := GetMessageType(typeName)
-	if err != nil {
-		return nil, err
-	}
-	b, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(b, &t)
-	if err != nil {
-		return nil, err
-	}
-	return t, err
-}
-
-func convertFromRosMsg(msg interface{}) (map[string]interface{}, error) {
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-
-	var mapResult map[string]interface{}
-	err = json.Unmarshal(data, &mapResult)
-	if err != nil {
-		return nil, err
-	}
-	return mapResult, nil
-}
-
-type ThrottlingStates struct {
-	msg.Package                  `ros:"sample_msgs"`
-	Header                       std_msgs.Header `rosname:"header"`
-	Undervoltage                 bool            `rosname:"undervoltage"`
-	ArmFrequentlyCapped          bool            `rosname:"arm_frequently_capped"`
-	Throttled                    bool            `rosname:"throttled"`
-	SoftTemperatureLimitActive   bool            `rosname:"soft_temperature_limit_active"`
-	UndervoltageOccurred         bool            `rosname:"undervoltage_occurred"`
-	ArmFrequentlyCappedOccurred  bool            `rosname:"arm_frequently_capped_occurred"`
-	ThrottlingOccurred           bool            `rosname:"throttling_occurred"`
-	SoftTemperatureLimitOccurred bool            `rosname:"soft_temperature_limit_occurred"`
 }
