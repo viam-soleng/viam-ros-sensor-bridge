@@ -11,10 +11,11 @@ import (
 
 	"github.com/viam-soleng/viam-ros-sensor-bridge/ros_sensor_consumer"
 	"github.com/viam-soleng/viam-ros-sensor-bridge/ros_sensor_publisher"
+	module_utils "github.com/viam-soleng/viam-ros-sensor-bridge/utils"
 )
 
 func main() {
-	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("viam-ros-sensor"))
+	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs(module_utils.LoggerName))
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (err error) {

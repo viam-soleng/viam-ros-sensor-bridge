@@ -4,6 +4,7 @@ go 1.21.6
 
 require (
 	github.com/bluenviron/goroslib/v2 v2.1.4
+	github.com/stretchr/testify v1.8.4
 	go.viam.com/rdk v0.19.0
 	go.viam.com/utils v0.1.59
 )
@@ -99,7 +100,6 @@ require (
 	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/smartystreets/assertions v1.13.0 // indirect
 	github.com/srikrsna/protoc-gen-gotag v0.6.2 // indirect
-	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect

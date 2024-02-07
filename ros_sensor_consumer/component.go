@@ -11,10 +11,11 @@ import (
 	"go.viam.com/rdk/resource"
 
 	"github.com/viam-soleng/viam-ros-sensor-bridge/messages"
+	"github.com/viam-soleng/viam-ros-sensor-bridge/utils"
 	"github.com/viam-soleng/viam-ros-sensor-bridge/viamrosnode"
 )
 
-var Model = resource.NewModel("viam-soleng", "ros", "sensor-consumer")
+var Model = resource.NewModel(utils.Namespace, "ros", "sensor-consumer")
 
 func init() {
 	resource.RegisterComponent(
@@ -27,7 +28,7 @@ func init() {
 }
 
 func NewRosSensorConsumer(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (sensor.Sensor, error) {
-	logger.Info("Starting Ros Sensor Consumer Module v0.0.1")
+	logger.Infof("Starting Ros Sensor Consumer Module %v", utils.Version)
 	c, cancelFunc := context.WithCancel(context.Background())
 	b := RosSensorConsumer{
 		Named:      conf.ResourceName().AsNamed(),

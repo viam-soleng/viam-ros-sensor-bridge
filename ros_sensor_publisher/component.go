@@ -13,10 +13,11 @@ import (
 	viamutils "go.viam.com/utils"
 
 	"github.com/viam-soleng/viam-ros-sensor-bridge/messages"
+	"github.com/viam-soleng/viam-ros-sensor-bridge/utils"
 	"github.com/viam-soleng/viam-ros-sensor-bridge/viamrosnode"
 )
 
-var Model = resource.NewModel("viam-soleng", "ros", "sensor-publisher")
+var Model = resource.NewModel(utils.Namespace, "ros", "sensor-publisher")
 
 func init() {
 	resource.RegisterComponent(
@@ -29,7 +30,7 @@ func init() {
 }
 
 func NewRosSensorPublisher(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (resource.Resource, error) {
-	logger.Info("Starting Ros Sensor Publisher Module v0.0.1")
+	logger.Infof("Starting Ros Sensor Publisher Module %v", utils.Version)
 	c, cancelFunc := context.WithCancel(context.Background())
 	b := RosSensorPublisher{
 		Named:      conf.ResourceName().AsNamed(),
