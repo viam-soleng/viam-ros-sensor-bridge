@@ -1,4 +1,4 @@
-package ros_sensor_consumer
+package ros_sensor_subscriber
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"github.com/viam-soleng/viam-ros-sensor-bridge/viamrosnode"
 )
 
-var Model = resource.NewModel(utils.Namespace, "ros", "sensor-consumer")
+var Model = resource.NewModel(utils.Namespace, "ros", "sensor-subscriber")
 
 func init() {
 	resource.RegisterComponent(

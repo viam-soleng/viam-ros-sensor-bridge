@@ -5,7 +5,6 @@ import (
 )
 
 var std_msgs_registry = TypeRegistry{
-	"std_msgs/Header":              func() interface{} { return &std_msgs.Header{} },
 	"std_msgs/String":              func() interface{} { return &std_msgs.String{} },
 	"std_msgs/Bool":                func() interface{} { return &std_msgs.Bool{} },
 	"std_msgs/Int8":                func() interface{} { return &std_msgs.Int8{} },
@@ -31,8 +30,6 @@ var std_msgs_registry = TypeRegistry{
 
 func GetStdMsgsCallback(handleMessage func(interface{}) error, typeName string) interface{} {
 	switch typeName {
-	case "std_msgs/Header":
-		return func(msg *std_msgs.Header) { handleMessage(msg) }
 	case "std_msgs/String":
 		return func(msg *std_msgs.String) { handleMessage(msg) }
 	case "std_msgs/Bool":
@@ -77,4 +74,12 @@ func GetStdMsgsCallback(handleMessage func(interface{}) error, typeName string) 
 		return func(msg *std_msgs.Empty) { handleMessage(msg) }
 	}
 	return nil
+}
+
+func GetStdMsgsSerializer(typeName string) (interface{}, error) {
+	creator, ok := std_msgs_registry[typeName]
+	if ok {
+		return creator(), nil
+	}
+	return nil, ErrTypeNotFound
 }

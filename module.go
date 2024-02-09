@@ -9,8 +9,8 @@ import (
 	"go.viam.com/rdk/module"
 	"go.viam.com/utils"
 
-	"github.com/viam-soleng/viam-ros-sensor-bridge/ros_sensor_consumer"
 	"github.com/viam-soleng/viam-ros-sensor-bridge/ros_sensor_publisher"
+	"github.com/viam-soleng/viam-ros-sensor-bridge/ros_sensor_subscriber"
 	module_utils "github.com/viam-soleng/viam-ros-sensor-bridge/utils"
 )
 
@@ -29,7 +29,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (er
 		return err
 	}
 
-	err = custom_module.AddModelFromRegistry(ctx, sensor.API, ros_sensor_consumer.Model)
+	err = custom_module.AddModelFromRegistry(ctx, sensor.API, ros_sensor_subscriber.Model)
 	if err != nil {
 		return err
 	}

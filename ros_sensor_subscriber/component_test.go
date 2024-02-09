@@ -1,4 +1,4 @@
-package ros_sensor_consumer
+package ros_sensor_subscriber
 
 import (
 	"os"

@@ -12,6 +12,7 @@ import (
 var ErrTypeNotFound = errors.New("type not found")
 
 type TypeRegistry map[string]func() interface{}
+type SerializerTypeRegistry map[string]func(map[string]interface{}) interface{}
 
 type MessageHandler struct {
 	logger         logging.Logger
@@ -69,7 +70,7 @@ func ConvertToRosMsg(typeName string, data map[string]interface{}) (interface{},
 	if err != nil {
 		return nil, err
 	}
-	b, err := json.Marshal(t)
+	b, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}

@@ -9,8 +9,8 @@ type RosBridgeConfig struct {
 
 type SensorConfig struct {
 	Topic      string  `json:"topic"`
-	Type       string  `json:"type"`
-	Name       string  `json:"name"`
+	Type       string  `json:"message_type"`
+	Name       string  `json:"sensor_name"`
 	SampleRate float64 `json:"sample_rate"`
 }
 

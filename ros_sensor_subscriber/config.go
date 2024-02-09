@@ -1,4 +1,4 @@
-package ros_sensor_consumer
+package ros_sensor_subscriber
 
 import "errors"
 
@@ -9,7 +9,7 @@ type RosBridgeConfig struct {
 
 type SensorConfig struct {
 	Topic string `json:"topic"`
-	Type  string `json:"type"`
+	Type  string `json:"message_type"`
 }
 
 func (cfg *RosBridgeConfig) Validate(path string) ([]string, error) {
