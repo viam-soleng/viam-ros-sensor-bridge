@@ -4,6 +4,7 @@ import "errors"
 
 type RosBridgeConfig struct {
 	PrimaryUri string          `json:"primary_uri"`
+	Host       string          `json:"host"`
 	Sensors    []*SensorConfig `json:"sensors"`
 }
 

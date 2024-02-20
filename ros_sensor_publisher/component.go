@@ -2,6 +2,7 @@ package ros_sensor_publisher
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 
 	"github.com/viam-soleng/viam-ros-sensor-bridge/messages"
 	"github.com/viam-soleng/viam-ros-sensor-bridge/utils"
-	"github.com/viam-soleng/viam-ros-sensor-bridge/viamrosnode"
 )
 
 var Model = resource.NewModel(utils.Namespace, "ros", "sensor-publisher")
@@ -50,7 +50,6 @@ type RosSensorPublisher struct {
 	mu         sync.RWMutex
 	wg         sync.WaitGroup
 	logger     logging.Logger
-	node       *goroslib.Node
 	cancelFunc context.CancelFunc
 	ctx        context.Context
 }
@@ -62,10 +61,6 @@ func (r *RosSensorPublisher) Close(ctx context.Context) error {
 	r.logger.Info("Closing Ros Sensor Publisher Module")
 	r.cancelFunc()
 	r.wg.Wait()
-	if r.node != nil {
-		r.logger.Info("Closing node")
-		r.node.Close()
-	}
 	return nil
 }
 
@@ -93,8 +88,10 @@ func (r *RosSensorPublisher) Reconfigure(ctx context.Context, deps resource.Depe
 
 func (r *RosSensorPublisher) reconfigure(newConf *RosBridgeConfig, deps resource.Dependencies) error {
 	r.logger.Debug("Stopping existing readers")
+
 	// call the cancel func to stop all readers
 	r.cancelFunc()
+
 	// wait for the readers to stop
 	r.wg.Wait()
 	r.logger.Debug("Readers stopped")
@@ -103,20 +100,6 @@ func (r *RosSensorPublisher) reconfigure(newConf *RosBridgeConfig, deps resource
 	c, cancelFunc := context.WithCancel(context.Background())
 	r.cancelFunc = cancelFunc
 	r.ctx = c
-
-	// Close the node if it exists, this is because we need to recreate it with the new primary uri
-	// TODO: We can be more selective here, compare the old and new URI?
-	if r.node != nil {
-		r.logger.Debug("Closing node")
-		viamrosnode.ShutdownNodes()
-	}
-
-	var err error
-	r.logger.Debug("Creating new node")
-	r.node, err = viamrosnode.GetInstance(newConf.PrimaryUri)
-	if err != nil {
-		return err
-	}
 
 	for _, s := range newConf.Sensors {
 		r.logger.Debugf("Creating sensor %v", s.Name)
@@ -131,71 +114,161 @@ func (r *RosSensorPublisher) reconfigure(newConf *RosBridgeConfig, deps resource
 		}
 
 		r.logger.Debugf("Forking reader %v", s.Name)
-		viamutils.PanicCapturingGo(reader(s, d.(sensor.Sensor), r.node, r.logger, &r.wg, r.ctx))
+		reader := RosReader{
+			primaryUri:       newConf.PrimaryUri,
+			host:             newConf.Host,
+			sensorConfig:     s,
+			sensor:           d.(sensor.Sensor),
+			logger:           r.logger,
+			wg:               &r.wg,
+			ctx:              r.ctx,
+			requestReconnect: make(chan interface{}, 100),
+		}
+		viamutils.PanicCapturingGo(reader.read())
 	}
 	return nil
 }
 
-func reader(s *SensorConfig, sensor sensor.Sensor, node *goroslib.Node, logger logging.Logger, wg *sync.WaitGroup, ctx context.Context) func() {
-	return func() {
-		logger.Infof("Starting reader %v", sensor.Name().Name)
+type RosReader struct {
+	primaryUri       string
+	host             string
+	sensorConfig     *SensorConfig
+	sensor           sensor.Sensor
+	logger           logging.Logger
+	wg               *sync.WaitGroup
+	ctx              context.Context
+	p                *goroslib.Publisher
+	n                *goroslib.Node
+	mu               sync.Mutex
+	requestReconnect chan interface{}
+}
 
+func (r *RosReader) onLog(level goroslib.LogLevel, msg string) {
+	if level == goroslib.LogLevelFatal {
+		r.logger.Fatal(msg)
+	} else if level == goroslib.LogLevelError {
+		r.logger.Error(msg)
+	} else if level == goroslib.LogLevelWarn {
+		r.logger.Warn(msg)
+	} else if level == goroslib.LogLevelInfo {
+		r.logger.Info(msg)
+	} else if level == goroslib.LogLevelDebug {
+		r.logger.Debug(msg)
+	} else {
+		r.logger.Errorf("Unknown log level: %v, msg: %v", level, msg)
+	}
+
+	if strings.Contains(msg, "got an error") && strings.Contains(msg, "dial tcp") {
+		r.logger.Warn("Got a dial tcp error, requesting reconnect")
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.requestReconnect <- struct{}{}
+	}
+}
+
+func (r *RosReader) connect() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.logger.Debugf("Shutting down existing publisher %v", r.sensorConfig.Topic)
+	if r.p != nil {
+		r.p.Close()
+	}
+	r.p = nil
+	// Shutdown any existing nodes
+	if r.n != nil {
+		r.n.Close()
+	}
+
+	r.logger.Debugf("Connecting to %v", r.primaryUri)
+	node := utils.GetRosNodeWithRetry(r.logger, r.primaryUri, r.host, r.onLog)
+	r.n = node
+
+	// Get the type of the message so we can create the publisher later
+	messageType, err := messages.GetMessageType(r.sensorConfig.Type)
+	if err != nil {
+		r.logger.Error(err)
+		return
+	}
+	r.logger.Debugf("Creating publisher %v", r.sensorConfig.Topic)
+	publisher, err := goroslib.NewPublisher(goroslib.PublisherConf{
+		Node:  node,
+		Topic: r.sensorConfig.Topic,
+		Msg:   messageType,
+	})
+	if err == goroslib.ErrNodeTerminated {
+		r.logger.Debugf("Node terminated %v", r.sensor.Name().Name)
+		r.logger.Debugf("%v", node == nil)
+		return
+	}
+	if err != nil {
+		r.logger.Error(err)
+		return
+	}
+	r.p = publisher
+}
+
+func (r *RosReader) read() func() {
+	return func() {
+		r.logger.Infof("Starting reader %v", r.sensor.Name().Name)
 		// increment the waitgroup to make sure we wait for this reader to stop
-		wg.Add(1)
+		r.wg.Add(1)
 		defer func() {
 			// release the waitgroup when this reader stops
-			wg.Done()
-			logger.Debugf("Reader fully stopped %v", sensor.Name().Name)
+			r.wg.Done()
+			r.logger.Debugf("Reader fully stopped %v", r.sensor.Name().Name)
 		}()
 
-		// Get the type of the message so we can create the publisher later
-		messageType, err := messages.GetMessageType(s.Type)
-		if err != nil {
-			logger.Error(err)
-			return
-		}
-		logger.Debugf("Creating publisher %v", s.Topic)
-		publisher, err := goroslib.NewPublisher(goroslib.PublisherConf{
-			Node:  node,
-			Topic: s.Topic,
-			Msg:   messageType,
-		})
-		if err == goroslib.ErrNodeTerminated {
-			logger.Debugf("Node terminated %v", sensor.Name().Name)
-			logger.Debugf("%v", node == nil)
-			return
-		}
-		if err != nil {
-			logger.Error(err)
-			return
-		}
+		r.connect()
 		// We need to close the publisher when this reader stops
 		defer func() {
-			logger.Debugf("Closing publisher %v", s.Topic)
-			publisher.Close()
+			r.logger.Debugf("Closing publisher %v", r.sensorConfig.Topic)
+			if r.p != nil {
+				r.p.Close()
+			}
+			r.logger.Debugf("Closing node %v", r.sensor.Name().Name)
+			if r.n != nil {
+				r.n.Close()
+			}
 		}()
-
-		timer := time.NewTimer(time.Duration(1/s.SampleRate) * time.Second)
+		if r.sensorConfig.SampleRate == 0 {
+			r.logger.Warnf("Sample rate is 0, defaulting to 1Hz %v", r.sensor.Name().Name)
+			r.sensorConfig.SampleRate = 1
+		}
+		lastReconnectRequest := time.Now()
+		timer := time.NewTimer(time.Duration(1/r.sensorConfig.SampleRate) * time.Second)
 		for {
 			select {
-			case <-ctx.Done():
-				logger.Debugf("Reader recevied shutdown signal %v", sensor.Name().Name)
+			case <-r.requestReconnect:
+				if time.Since(lastReconnectRequest) < 1*time.Second {
+					continue
+				}
+				r.logger.Infof("Reconnecting %v", r.sensor.Name().Name)
+				r.connect()
+				lastReconnectRequest = time.Now()
+			case <-r.ctx.Done():
+				r.logger.Debugf("Reader recevied shutdown signal %v", r.sensor.Name().Name)
 				return
 			case <-timer.C:
-				logger.Debugf("Reading sensor %v", sensor.Name().Name)
-				readings, err := sensor.Readings(ctx, map[string]interface{}{})
+				r.logger.Debugf("Reading sensor %v", r.sensor.Name().Name)
+				readings, err := r.sensor.Readings(r.ctx, map[string]interface{}{})
 				if err != nil {
-					logger.Error(err)
+					r.logger.Error(err)
 					continue
 				}
 
-				d, e := messages.ConvertToRosMsg(s.Type, readings)
+				d, e := messages.ConvertToRosMsg(r.sensorConfig.Type, readings)
 				if e != nil {
-					logger.Error(e)
+					r.logger.Error(e)
 					continue
 				}
-				logger.Debugf("Publishing message %v", sensor.Name().Name)
-				publisher.Write(d)
+				r.logger.Debugf("Publishing message %v", r.sensor.Name().Name)
+				// Only try to write if the publisher is there
+				if r.p != nil {
+					r.p.Write(d)
+				} else {
+					r.logger.Warnf("Publisher is nil %v, this could mean ROS isn't responding to connection attempts or we are attempting to reconnect", r.sensor.Name().Name)
+				}
 				timer.Reset(1 * time.Second)
 			}
 		}
