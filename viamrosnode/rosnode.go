@@ -12,18 +12,18 @@ var lock *sync.Mutex = &sync.Mutex{}
 var i int = 0
 
 func getInsance(primary string, nodeConfig goroslib.NodeConf) (*goroslib.Node, error) {
-	lock.Lock()
-	defer lock.Unlock()
 	node, err := goroslib.NewNode(nodeConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	i = i + 1
 	return node, nil
 }
 
 func GetInsanceWithLogCallback(primary string, host string, logCallback func(level goroslib.LogLevel, msg string)) (*goroslib.Node, error) {
+	lock.Lock()
+	defer lock.Unlock()
+	defer func() { i = i + 1 }()
 	nodeConfig := goroslib.NodeConf{
 		Name:            strings.Join([]string{"viamrosnode_", primary, strconv.Itoa(i)}, ""),
 		MasterAddress:   primary,
@@ -35,6 +35,9 @@ func GetInsanceWithLogCallback(primary string, host string, logCallback func(lev
 }
 
 func GetInstance(primary string, host string) (*goroslib.Node, error) {
+	lock.Lock()
+	defer lock.Unlock()
+	defer func() { i = i + 1 }()
 	nodeConfig := goroslib.NodeConf{
 		Name:          strings.Join([]string{"viamrosnode_", primary, strconv.Itoa(i)}, ""),
 		MasterAddress: primary,
